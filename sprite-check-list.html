@@ -158,6 +158,52 @@
   .btn.warn{color:#B3261E; border-color:#B3261E;}
   .hint{width:100%; text-align:center; font-size:11px; color:#8a7c63;}
 
+  .profile{
+    font-family:'Arial Black', Arial, sans-serif; font-style:italic;
+    font-size:12px; color:#141414; margin-bottom:2px;
+  }
+  .profile button{
+    border:none; background:none; color:#b3261e; cursor:pointer;
+    font-size:10px; font-weight:700; text-decoration:underline; padding:0 0 0 6px;
+  }
+  .sync{font-size:9px; color:#8a7c63; font-weight:600; font-family:'Segoe UI',sans-serif; font-style:normal;}
+
+  /* ---------- Pantalla de perfil ---------- */
+  .overlay{
+    position:fixed; inset:0; z-index:50;
+    background:rgba(10,10,10,.75);
+    display:flex; align-items:center; justify-content:center;
+    padding:16px;
+  }
+  .overlay.hidden{display:none;}
+  .login{
+    background:var(--cream); border-radius:12px;
+    padding:26px 24px; width:min(360px,100%);
+    box-shadow:0 12px 40px rgba(0,0,0,.5);
+    text-align:center;
+  }
+  .login h3{
+    font-family:'Arial Black', Arial, sans-serif; font-style:italic; text-transform:uppercase;
+    font-size:18px; margin-bottom:6px;
+    background:linear-gradient(180deg,#ff8a1a,#e8321f 55%,#7a120c);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .login p{font-size:12px; color:#6b5f4d; margin-bottom:16px;}
+  .login input{
+    width:100%; padding:10px 12px; margin-bottom:10px;
+    border:2px solid var(--ink); border-radius:8px;
+    font-size:14px; background:#fff; text-align:center;
+  }
+  .login .go{
+    width:100%;
+    font-family:'Arial Black', Arial, sans-serif; font-style:italic; text-transform:uppercase;
+    font-size:13px; letter-spacing:.04em;
+    border:2px solid var(--ink); border-radius:8px; padding:10px;
+    background:var(--ink); color:#fff; cursor:pointer;
+  }
+  .login .go:hover{background:#333;}
+  .login .err{color:#B3261E; font-size:12px; font-weight:700; min-height:16px; margin-top:8px;}
+
   @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
 </style>
 </head>
@@ -171,6 +217,7 @@
     </div>
     <div class="title">Sprite Check List</div>
     <div class="counter">
+      <div class="profile" id="profileTag"></div>
       <div class="c" id="cCount">Collected: 0</div>
       <div class="m" id="mCount">Mastered: 0</div>
     </div>
@@ -185,7 +232,18 @@
 
   <div class="footer">
     <button class="btn warn" id="resetBtn">Desmarcar todo</button>
-    <div class="hint">Toca el sprite o su casilla: 1 toque = Collected (verde) · 2 = Mastered (amarillo) · 3 = vacío. Se guarda solo, tanto aquí en Claude como si abres el archivo en tu navegador.</div>
+    <div class="hint">Toca el sprite o su casilla: 1 toque = Collected (verde) · 2 = Mastered (amarillo) · 3 = vacío. Con perfil, tu progreso se guarda en la nube y te sigue en cualquier dispositivo.</div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="login">
+    <h3>¿Quién juega?</h3>
+    <p>Escribe tu nombre y un PIN de 4 números.<br>Si es tu primera vez se crea tu perfil; si ya existe, entras con tu PIN y tu progreso te sigue en cualquier dispositivo.</p>
+    <input id="inName" type="text" maxlength="20" placeholder="Tu nombre" autocomplete="off">
+    <input id="inPin" type="password" inputmode="numeric" maxlength="4" placeholder="PIN (4 números)">
+    <button class="go" id="goBtn">Entrar</button>
+    <div class="err" id="loginErr"></div>
   </div>
 </div>
 
@@ -195,41 +253,154 @@ const STORE_KEY = 'sprite-checklist-runners-v1';
 // estados: 0 = vacío, 1 = collected, 2 = mastered
 let state = {};
 
-// Adaptador de almacenamiento:
-// - Dentro de Claude usa window.storage (persistente en el artefacto)
-// - Abierto como archivo en tu navegador usa localStorage (memoria del navegador)
-const hasClaudeStorage = typeof window.storage !== 'undefined' && window.storage && typeof window.storage.get === 'function';
+// =====================================================================
+// CONFIGURACIÓN DE FIREBASE — pega aquí la config de tu proyecto
+// (Consola Firebase > Configuración del proyecto > Tus apps > Config)
+// =====================================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyDybMaZgA9owRfB5ifO61i0IOBrRbefy5E",
+  authDomain: "sprite-9b7d3.firebaseapp.com",
+  projectId: "sprite-9b7d3",
+  storageBucket: "sprite-9b7d3.firebasestorage.app",
+  messagingSenderId: "546292140361",
+  appId: "1:546292140361:web:30f6f8bc19f76041c07298",
+  measurementId: "G-27XBRWPCYT"
+};
+// =====================================================================
 
-async function storeGet(key){
-  if(hasClaudeStorage){
-    try{ const r = await window.storage.get(key); return r ? r.value : null; }
-    catch(e){ return null; } // la clave aún no existe
-  }
-  try{ return localStorage.getItem(key); }
-  catch(e){ return null; }
+let db = null, fs = null;      // Firestore y su SDK
+let profile = null;            // { name, nameKey }
+const PROFILE_KEY = 'sprite-checklist-profile';
+
+const cloudReady = () => db !== null && profile !== null;
+
+async function initFirebase(){
+  try{
+    const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+    fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const app = appMod.initializeApp(firebaseConfig);
+    db = fs.getFirestore(app);
+    return true;
+  }catch(e){ console.error('Firebase no disponible', e); return false; }
 }
 
-async function storeSet(key, value){
-  if(hasClaudeStorage){
-    try{ await window.storage.set(key, value); return true; }
-    catch(e){ console.error('No se pudo guardar en Claude', e); return false; }
-  }
-  try{ localStorage.setItem(key, value); return true; }
-  catch(e){ console.error('No se pudo guardar en el navegador', e); return false; }
+async function sha256(txt){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-async function load(){
-  const v = await storeGet(STORE_KEY);
-  if(v){
-    try{ state = JSON.parse(v); }catch(e){ state = {}; }
+function localGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function localSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function localDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+// ---------- Sesión ----------
+function showLogin(msg){
+  document.getElementById('overlay').classList.remove('hidden');
+  document.getElementById('loginErr').textContent = msg || '';
+}
+function hideLogin(){ document.getElementById('overlay').classList.add('hidden'); }
+
+async function doLogin(){
+  const name = document.getElementById('inName').value.trim();
+  const pin = document.getElementById('inPin').value.trim();
+  const err = document.getElementById('loginErr');
+  if(!name){ err.textContent = 'Escribe tu nombre'; return; }
+  if(!/^[0-9]{4}$/.test(pin)){ err.textContent = 'El PIN son 4 números'; return; }
+  err.textContent = 'Entrando…';
+  const nameKey = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'-');
+  const pinHash = await sha256(nameKey + ':' + pin);
+  try{
+    const ref = fs.doc(db, 'sprite-profiles', nameKey);
+    const snap = await fs.getDoc(ref);
+    if(snap.exists()){
+      const d = snap.data();
+      if(d.pinHash !== pinHash){ err.textContent = 'PIN incorrecto para ese nombre'; return; }
+      state = d.state || {};
+    }else{
+      state = {};
+      await fs.setDoc(ref, { name, pinHash, state, updatedAt: Date.now() });
+    }
+    profile = { name, nameKey };
+    localSet(PROFILE_KEY, JSON.stringify({ name, nameKey, pinHash }));
+    hideLogin();
+    render();
+  }catch(e){
+    console.error(e);
+    err.textContent = 'No se pudo conectar. Revisa tu internet.';
   }
+}
+
+async function resumeSession(){
+  const saved = localGet(PROFILE_KEY);
+  if(!saved) return false;
+  try{
+    const p = JSON.parse(saved);
+    const ref = fs.doc(db, 'sprite-profiles', p.nameKey);
+    const snap = await fs.getDoc(ref);
+    if(snap.exists() && snap.data().pinHash === p.pinHash){
+      profile = { name: p.name, nameKey: p.nameKey };
+      state = snap.data().state || {};
+      return true;
+    }
+  }catch(e){ console.error(e); }
+  return false;
+}
+
+function logout(){
+  localDel(PROFILE_KEY);
+  profile = null; state = {};
   render();
+  showLogin();
+}
+
+function updateProfileTag(){
+  const el = document.getElementById('profileTag');
+  if(!el) return;
+  if(profile){
+    el.innerHTML = '👤 ' + profile.name +
+      ' <button id="outBtn" type="button">salir</button>' +
+      '<div class="sync" id="syncTag">guardado en la nube</div>';
+    const b = document.getElementById('outBtn');
+    if(b) b.addEventListener('click', logout);
+  }else{
+    el.innerHTML = '<div class="sync">modo local (sin perfil)</div>';
+  }
+}
+
+// ---------- Guardado ----------
+async function load(){
+  const ok = await initFirebase();
+  if(ok){
+    const resumed = await resumeSession();
+    render();
+    if(!resumed) showLogin();
+  }else{
+    // Sin Firebase configurado: funciona en modo local como antes
+    const v = localGet(STORE_KEY);
+    if(v){ try{ state = JSON.parse(v); }catch(e){ state = {}; } }
+    render();
+  }
 }
 
 let t=null;
 function save(){
   clearTimeout(t);
-  t=setTimeout(()=>{ storeSet(STORE_KEY, JSON.stringify(state)); },300);
+  t=setTimeout(async ()=>{
+    if(cloudReady()){
+      try{
+        const ref = fs.doc(db, 'sprite-profiles', profile.nameKey);
+        await fs.setDoc(ref, { state, updatedAt: Date.now() }, { merge:true });
+        const s = document.getElementById('syncTag');
+        if(s) s.textContent = 'guardado en la nube ✓';
+      }catch(e){
+        console.error('No se pudo guardar en la nube', e);
+        const s = document.getElementById('syncTag');
+        if(s) s.textContent = 'sin conexión — reintentando al próximo cambio';
+      }
+    }else{
+      localSet(STORE_KEY, JSON.stringify(state));
+    }
+  },400);
 }
 
 function updateCounters(){
@@ -292,7 +463,11 @@ function render(){
     document.getElementById('half-right').appendChild(lg);
   }
   updateCounters();
+  updateProfileTag();
 }
+
+document.getElementById('goBtn').addEventListener('click', doLogin);
+document.getElementById('inPin').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 
 document.getElementById('resetBtn').addEventListener('click', ()=>{
   if(confirm('¿Desmarcar todos los sprites?')){ state={}; render(); save(); }
