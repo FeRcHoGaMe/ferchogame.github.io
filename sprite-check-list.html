@@ -279,7 +279,7 @@ async function initFirebase(){
     const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
     fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
     const app = appMod.initializeApp(firebaseConfig);
-    db = fs.getFirestore(app);
+    db = fs.getFirestore(app, "sprites");  // base de datos con ID "sprites"
     return true;
   }catch(e){ console.error('Firebase no disponible', e); return false; }
 }
