@@ -1,2 +1,2 @@
 # ferchogame.github.io
-Spirites
+Coleccion de sprites
