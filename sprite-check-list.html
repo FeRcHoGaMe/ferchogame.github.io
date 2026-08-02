@@ -3023,19 +3023,33 @@ function gamerRank(pct){
   if(pct>=15)  return ['CAZADOR','#4CD44C'];
   return ['NOVATO','#8a8a8a'];
 }
+function validKeys(){
+  const keys=[];
+  ['left','right'].forEach((side,si)=>{
+    const pfx = si===0?'L':'R';
+    SPRITES[side].forEach((row,ri)=>row.forEach((_,ci)=>keys.push(pfx+'-'+ri+'-'+ci)));
+  });
+  return keys;
+}
 function updateCounters(){
   let c=0,m=0;
-  Object.values(state).forEach(v=>{ if(v===1)c++; if(v===2)m++; });
-  document.getElementById('cCount').textContent = 'Collected: '+c;
+  // contar SOLO posiciones que existen en la grilla actual (ignora marcas fantasma de versiones viejas)
+  validKeys().forEach(k=>{
+    const v=state[k]||0;
+    if(v===1)c++; else if(v===2)m++;
+  });
+  // Mastered incluye tenerlo: el total "coleccionado" = collected + mastered
+  const collectedTotal = c+m;
+  document.getElementById('cCount').textContent = 'Collected: '+collectedTotal;
   document.getElementById('mCount').textContent = 'Mastered: '+m;
-  // HUD de progreso: cuenta collected + mastered como obtenidos
-  const owned=c+m, total=totalSprites();
-  const pct = total? Math.round(owned/total*100):0;
+  // HUD: obtenidos = todos los que tienes (collected + mastered), sobre el total real
+  const owned=collectedTotal, total=totalSprites();
+  const pct = total? Math.min(100, Math.round(owned/total*100)):0;
   const fill=document.getElementById('hudFill');
   const pctEl=document.getElementById('hudPct');
   const rankEl=document.getElementById('hudRank');
   if(fill) fill.style.width=pct+'%';
-  if(pctEl) pctEl.textContent=pct+'%';
+  if(pctEl) pctEl.textContent=owned+'/'+total+' · '+pct+'%';
   if(rankEl){
     const [name,col]=gamerRank(pct);
     rankEl.textContent=name;
