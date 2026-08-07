@@ -57,7 +57,7 @@
   /* ---------- El póster ---------- */
   .poster{
     position:relative;
-    width:min(920px, 100%);
+    width:min(1180px, 100%);
     background:
       linear-gradient(165deg, rgba(18,22,34,.96) 0%, rgba(12,14,22,.97) 55%, rgba(20,16,10,.96) 100%);
     border:1px solid rgba(240,192,96,.25);
@@ -307,25 +307,25 @@
     column-gap:clamp(20px, 6%, 70px);
     align-items:start;
   }
-  @media (max-width:560px){ .sheet{grid-template-columns:1fr; row-gap:10px;} }
-  .half{display:flex; flex-direction:column; gap:12px;}
-  .row{display:flex; gap:7px;}
+  @media (max-width:720px){ .sheet{grid-template-columns:1fr; row-gap:10px;} }
+  .half{display:flex; flex-direction:column; gap:14px;}
+  .row{display:flex; gap:9px; flex-wrap:wrap;}
 
-  .cell{display:flex; flex-direction:column; align-items:center; gap:4px; width:52px;}
+  .cell{display:flex; flex-direction:column; align-items:center; gap:5px; width:66px;}
   .cell img{
     display:block; width:100%; height:auto;
-    border-radius:7px;
-    box-shadow:0 2px 4px rgba(0,0,0,.25);
+    border-radius:8px;
+    box-shadow:0 2px 5px rgba(0,0,0,.3);
     cursor:pointer; transition:transform .12s ease;
     opacity:.55; filter:grayscale(.5);
   }
   .cell.collected img, .cell.mastered img{opacity:1; filter:none;}
-  .cell:hover img{transform:translateY(-3px) scale(1.07);}
+  .cell:hover img{transform:translateY(-3px) scale(1.08);}
 
   .chk{
-    width:24px; height:24px;
+    width:28px; height:28px;
     border:2.5px solid var(--ink);
-    border-radius:3px;
+    border-radius:4px;
     background:#fff;
     cursor:pointer; padding:0; position:relative;
     transition:transform .1s ease, background .12s ease;
@@ -549,21 +549,7 @@
   .stat-detail{font-size:9px;color:#7f8a9b;}
   @media(max-width:650px){.stats-dashboard{grid-template-columns:repeat(2,minmax(0,1fr));}.stat-card.wide{grid-column:span 2;}}
 
-  /* ===== Noticias y próximos sprites ===== */
-  .intel-panel{position:relative;z-index:1;margin:0 0 20px;padding:14px;border:1px solid rgba(58,200,255,.20);border-radius:12px;background:linear-gradient(135deg,rgba(58,200,255,.07),rgba(240,168,72,.06));}
-  .intel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:11px;}
-  .intel-title{font-family:'Arial Black',Arial,sans-serif;font-style:italic;text-transform:uppercase;color:#fff;font-size:15px;}
-  .live-badge{font-size:9px;font-weight:900;text-transform:uppercase;padding:4px 8px;border-radius:99px;background:rgba(255,107,94,.15);color:#ff8d83;border:1px solid rgba(255,107,94,.35);}
-  .countdown-box{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:12px;border-radius:10px;background:rgba(0,0,0,.30);border:1px solid rgba(240,192,96,.20);margin-bottom:11px;}
-  .next-name{font-family:'Arial Black',Arial,sans-serif;font-style:italic;color:var(--gold2);font-size:15px;text-transform:uppercase;}
-  .next-meta{font-size:10px;color:#9ba9bd;margin-top:3px;}
-  .countdown{font-family:'Arial Black',Arial,sans-serif;font-style:italic;color:#fff;font-size:clamp(16px,3vw,24px);white-space:nowrap;text-shadow:0 0 12px rgba(58,200,255,.45);}
-  .news-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
-  .news-card{padding:10px;border-radius:9px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);}
-  .news-tag{display:inline-block;font-size:8px;font-weight:900;text-transform:uppercase;color:#141414;background:var(--gold2);padding:2px 6px;border-radius:99px;margin-bottom:6px;}
-  .news-card h4{font-size:11px;color:#fff;margin-bottom:4px;line-height:1.25;}
-  .news-card p{font-size:9px;color:#8f9bad;line-height:1.35;}
-  @media(max-width:650px){.news-grid{grid-template-columns:1fr}.countdown-box{grid-template-columns:1fr}.countdown{text-align:left}}
+  /* ===== Noticias retiradas (no viable sin API oficial) ===== */
 
 </style>
 </head>
@@ -606,16 +592,6 @@
     <article class="stat-card rarity epic"><span class="stat-label">Epic</span><strong class="stat-value" id="statEpic">0/0</strong></article>
     <article class="stat-card wide"><span class="stat-label">Más cercano a completar</span><strong class="stat-value" id="statClosest">—</strong><span class="stat-detail" id="statClosestDetail">Sin datos todavía</span></article>
   </section>
-
-  <section class="intel-panel" aria-label="Noticias y próximos sprites">
-    <div class="intel-head"><h2 class="intel-title">🔔 Noticias y próximos sprites</h2><span class="live-badge">Modo demo</span></div>
-    <div class="countdown-box">
-      <div><div class="next-name" id="nextSpriteName">Próxima actualización</div><div class="next-meta" id="nextSpriteMeta">Configura aquí la fecha del siguiente lanzamiento</div></div>
-      <div class="countdown" id="releaseCountdown">--d --h --m --s</div>
-    </div>
-    <div class="news-grid" id="newsGrid"></div>
-  </section>
-
 
   <div class="filter-bar" id="filterBar">
     <span class="filter-label">Filtrar:</span>
@@ -3243,26 +3219,6 @@ function updateStatsDashboard(){
   set('statClosestDetail',closest?(closest.owned+'/'+closest.total+' · '+closest.pct+'% completado'):'Sin datos de rareza');
 }
 
-const NEWS_ITEMS=[
-  {tag:'Colección',title:'Revisa tus sprites pendientes',text:'El panel destaca automáticamente la rareza que estás más cerca de completar.'},
-  {tag:'Trueque',title:'Compara antes de intercambiar',text:'Usa el código o QR para encontrar coincidencias útiles con tus amigos.'},
-  {tag:'Próximamente',title:'Espacio listo para novedades',text:'Conecta este bloque a una API o edítalo con los anuncios oficiales.'}
-];
-const NEXT_RELEASE={name:'Próximo sprite / actualización',date:'2026-08-07T18:00:00-05:00',meta:'Fecha de demostración editable en el código'};
-function renderNews(){
-  const grid=document.getElementById('newsGrid'); if(!grid)return;
-  grid.innerHTML=NEWS_ITEMS.map(n=>'<article class="news-card"><span class="news-tag">'+n.tag+'</span><h4>'+n.title+'</h4><p>'+n.text+'</p></article>').join('');
-  const n=document.getElementById('nextSpriteName'),m=document.getElementById('nextSpriteMeta');
-  if(n)n.textContent=NEXT_RELEASE.name;if(m)m.textContent=NEXT_RELEASE.meta;
-}
-function updateReleaseCountdown(){
-  const el=document.getElementById('releaseCountdown');if(!el)return;
-  const diff=new Date(NEXT_RELEASE.date).getTime()-Date.now();
-  if(!Number.isFinite(diff)||diff<=0){el.textContent='Disponible ahora';return;}
-  const d=Math.floor(diff/86400000),h=Math.floor(diff%86400000/3600000),m=Math.floor(diff%3600000/60000),s=Math.floor(diff%60000/1000);
-  el.textContent=d+'d '+String(h).padStart(2,'0')+'h '+String(m).padStart(2,'0')+'m '+String(s).padStart(2,'0')+'s';
-}
-
 function cls(v){ return v===1 ? 'collected' : v===2 ? 'mastered' : ''; }
 
 let infoTimer=null;
@@ -3334,9 +3290,7 @@ function render(){
   }
   updateCounters();
   updateStatsDashboard();
-  renderNews();
-  updateReleaseCountdown();
-  updateProfileTag();
+    updateProfileTag();
 }
 
 document.getElementById('goBtn').addEventListener('click', doLogin);
@@ -3672,7 +3626,6 @@ document.getElementById('bgInput').addEventListener('change', e=>{
 load();
 loadBg();
 
-setInterval(updateReleaseCountdown,1000);
 </script>
 </body>
 </html>
